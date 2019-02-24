@@ -96,7 +96,8 @@ def run_model(input_sequence, output_size):
 
 def train(num_training_iterations, report_interval , batch_size ):
   """Trains the DNC and periodically reports the loss."""
-  df = pd.read_csv("../../data/gap-test.tsv" , sep = "\t")
+  df = pd.read_csv("./data/gap-test.tsv" , sep = "\t")
+
   dataset = pronoun_data.Data( df , batch_size = batch_size  )
   dataset_tensors = dataset(  )
 
