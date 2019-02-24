@@ -29,6 +29,7 @@ import tensorflow as tf
 
 from dnc import access
 
+
 DNCState = collections.namedtuple('DNCState', ('access_output', 'access_state',
                                                'controller_state'))
 
@@ -66,6 +67,8 @@ class DNC(snt.RNNCore):
       self._access = access.MemoryAccess(**access_config)
 
     self._access_output_size = np.prod(self._access.output_size.as_list())
+    print("ASsASA")
+    print( self._access_output_size)
     self._output_size = output_size
     self._clip_value = clip_value or 0
 
@@ -97,14 +100,14 @@ class DNC(snt.RNNCore):
       is a `DNCState` tuple containing the fields `access_output`,
       `access_state`, and `controller_state`.
     """
-
+    print( 'Omeeee')
+    print( inputs.shape )
     prev_access_output = prev_state.access_output
     prev_access_state = prev_state.access_state
     prev_controller_state = prev_state.controller_state
 
     batch_flatten = snt.BatchFlatten()
-    controller_input = tf.concat(
-        [batch_flatten(inputs), batch_flatten(prev_access_output)], 1)
+    controller_input = tf.concat([batch_flatten(inputs), batch_flatten(prev_access_output)], 1)
 
     controller_output, controller_state = self._controller(
         controller_input, prev_controller_state)
