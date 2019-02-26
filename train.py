@@ -165,13 +165,14 @@ def train(num_training_iterations, report_interval , batch_size ):
       total_loss += loss
       #print( loss )
       if (train_iteration + 1) % report_interval == 0:
+      	print( "train iteration:")
         print( total_loss/ report_interval )
         #tf.logging.info("%d: Avg training loss %f.\n%s",
          #               train_iteration, total_loss / report_interval,
           #              )
         total_loss = 0
 
-      if ( train_iteration + 0  ) % 1 == 10 :
+      if ( train_iteration + 0  ) % report_interval == 10 :
         print( "Calculationg data test")
         preds = np.zeros( ( dataset_test.num_samples , dataset_test.output_size ) )
         actuals = np.zeros( (dataset_test.num_samples ,  dataset_test.output_size ))
