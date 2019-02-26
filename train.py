@@ -60,7 +60,7 @@ tf.flags.DEFINE_integer("max_repeats", 2,
                         "Upper limit on number of copy repeats.")
 
 # Training options.
-tf.flags.DEFINE_integer("num_training_iterations", 100000,
+tf.flags.DEFINE_integer("num_training_iterations", 100,
                         "Number of iterations to train for.")
 tf.flags.DEFINE_integer("report_interval", 10,
                         "Iterations between reports (samples, valid loss).")
@@ -172,25 +172,25 @@ def train(num_training_iterations, report_interval , batch_size ):
           #              )
         total_loss = 0
 
-      if ( train_iteration + 1  ) % report_interval == 0 :
-        print( "Calculationg data test")
-        preds = np.zeros( ( dataset_test.num_samples , dataset_test.output_size ) )
-        actuals = np.zeros( (dataset_test.num_samples ,  dataset_test.output_size ))
-        start = 0 
-        end = start + batch_size
-        sess.run( dataset_test.data_iterator.initializer )
-        while True:
-            try:
-                pred , actual = sess.run( [output_test_sigmoid , dataset_tensors_test[1] ])
-                delta = pred.shape[0]
-                preds[ start: start+delta , : ] = pred
-                actuals[ start:start+delta , :  ] = actual 
-                start += batch_size 
-            except tf.errors.OutOfRangeError:
-                #loss_t = sess.run( [ ]
-                error = log_loss( actuals , preds )
-                print( "Loss on test:" , error )
-                break 
+
+    print( "Calculationg data test")
+    preds = np.zeros( ( dataset_test.num_samples , dataset_test.output_size ) )
+    actuals = np.zeros( (dataset_test.num_samples ,  dataset_test.output_size ))
+    start = 0 
+    end = start + batch_size
+    sess.run( dataset_test.data_iterator.initializer )
+    while True:
+        try:
+            pred , actual = sess.run( [output_test_sigmoid , dataset_tensors_test[1] ])
+            delta = pred.shape[0]
+            preds[ start: start+delta , : ] = pred
+            actuals[ start:start+delta , :  ] = actual 
+            start += batch_size 
+        except tf.errors.OutOfRangeError:
+            #loss_t = sess.run( [ ]
+            error = log_loss( actuals , preds )
+            print( "Loss on test:" , error )
+            break 
 
 
 
