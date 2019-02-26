@@ -37,7 +37,7 @@ class Data(  snt.AbstractModule ):
 		seqs = df["encoded"].values 
 
 
-		seqs_pad = pad_sequences( seqs )
+		seqs_pad = pad_sequences( seqs  , maxlen = 969 )
 
 		M = len(seqs_pad[0])
 		K1 = len(seqs_pad)
@@ -75,9 +75,12 @@ class Data(  snt.AbstractModule ):
 
 		return df 
 
-	def _build( self , repeat = None  ):
-
-		self.dataset1 = tf.data.Dataset.from_tensor_slices(   self.load_feats()  ).repeat( repeat ).shuffle( self.M ).batch( self.batch_size )
+	def _build( self , repeat = None, shuffle = True  ):
+		#.shuffle( self.M )
+		if shuffle:
+			self.dataset1 = tf.data.Dataset.from_tensor_slices(   self.load_feats()  ).repeat( repeat ).shuffle(self.M).batch( self.batch_size )
+		else:
+			self.dataset1 = tf.data.Dataset.from_tensor_slices(   self.load_feats()  ).repeat( repeat ).batch( self.batch_size )
 		#data_iterator = dataset1.make_initializable_iterator()
 		self.data_iterator = self.dataset1.make_initializable_iterator()
 		#feats , labels = self.load_feats()

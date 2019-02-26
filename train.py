@@ -60,18 +60,17 @@ tf.flags.DEFINE_integer("max_repeats", 2,
                         "Upper limit on number of copy repeats.")
 
 # Training options.
-tf.flags.DEFINE_integer("num_training_iterations", 100,
+tf.flags.DEFINE_integer("num_training_iterations", 1000,
                         "Number of iterations to train for.")
 tf.flags.DEFINE_integer("report_interval", 10,
                         "Iterations between reports (samples, valid loss).")
 tf.flags.DEFINE_string("checkpoint_dir", "/tmp/tf/dnc",
                        "Checkpointing directory.")
-tf.flags.DEFINE_integer("checkpoint_interval", 10,
+tf.flags.DEFINE_integer("checkpoint_interval", 100,
                         "Checkpointing step interval.")
 
 
-def run_model(input_sequence, output_size):
-  """Runs model on input sequence."""
+def get_dnc( output_size = 3 ):
 
   access_config = {
       "memory_size": FLAGS.memory_size,
@@ -83,9 +82,26 @@ def run_model(input_sequence, output_size):
       "hidden_size": FLAGS.hidden_size,
   }
   clip_value = FLAGS.clip_value
-
   dnc_core = dnc.DNC(access_config, controller_config, output_size, clip_value)
   initial_state = dnc_core.initial_state(FLAGS.batch_size)
+
+  return dnc_core , initial_state 
+
+def run_model2( dnc_cell , input_sequence  ):
+    initial_state = dnc_cell.initial_state(FLAGS.batch_size)
+    output_sequence , _ = tf.nn.dynamic_rnn(
+      cell=dnc_cell,
+      inputs=input_sequence,
+      time_major=False,
+      initial_state=initial_state
+
+      )
+
+    return output_sequence 
+
+def run_model(input_sequence, output_size):
+  """Runs model on input sequence."""
+
   output_sequence, _ = tf.nn.dynamic_rnn(
       cell=dnc_core,
       inputs=input_sequence,
@@ -98,29 +114,42 @@ def run_model(input_sequence, output_size):
 def train(num_training_iterations, report_interval , batch_size ):
   """Trains the DNC and periodically reports the loss."""
   df_train = pd.read_csv("./data/gap-test.tsv" , sep = "\t")
-  df_test = pd.read_csv( "./data/gap-development.tsv" , sep = "\t")[:100]
+  df_test = pd.read_csv( "./data/gap-development.tsv" , sep = "\t") #[:100]
 
   dataset = pronoun_data.Data( df_train , batch_size = batch_size  )
   dataset_test = pronoun_data.Data( df_test , batch_size = batch_size)
 
+  dataset( shuffle = True )
+  dataset_test( repeat = 1 )
+  print( "fokiu iueputa")
+  print( dataset.dataset1.output_shapes )
+  print( dataset_test.dataset1.output_shapes )
 
-  dataset_tensors = dataset(  )
-  dataset_tensors_test = dataset_test(  repeat = 1 )
+  iterator = tf.data.Iterator.from_structure( dataset.dataset1.output_types , dataset.dataset1.output_shapes )
+  train_init_op = iterator.make_initializer( dataset.dataset1  )
+  test_init_op = iterator.make_initializer(  dataset_test.dataset1 )
+
+  features, labels = iterator.get_next()
+
+  #dataset_tensors = dataset(  )
+  #dataset_tensors_test = dataset_test(  repeat = 1 )
 
   #inputs = tf.zeros( shape = [128 , 1 , 900 ])
-  output_logits = run_model( dataset_tensors[0] , dataset.output_size )
-  # Used for visualization.
+  dnc_cell , _  = get_dnc()
+
+  # train ops 
+  output_logits = run_model2( dnc_cell ,  features )
   output_logits = output_logits[ : , -1 , :]
   output_sigmoid = tf.nn.sigmoid( output_logits )
 
   ## test operations
 
-  output_test = run_model( dataset_tensors_test[0] , dataset_test.output_size )
-  output_test_logits = output_test[: , -1 , : ]
-  output_test_sigmoid = tf.nn.sigmoid( output_test_logits )
+  #output_test = run_model2( dnc_cell , dataset_tensors_test[0] )
+  #output_test_logits = output_test[: , -1 , : ]
+  #output_test_sigmoid = tf.nn.sigmoid( output_test_logits )
 
 
-  train_loss = dataset.loss( dataset_tensors[1] , output_sigmoid  )
+  train_loss = dataset.loss( labels , output_sigmoid  )
   print( train_loss.shape )
   # Set up optimizer with global norm clipping.
   trainable_variables = tf.trainable_variables()
@@ -156,10 +185,10 @@ def train(num_training_iterations, report_interval , batch_size ):
   with tf.train.SingularMonitoredSession(
       hooks=hooks, checkpoint_dir=FLAGS.checkpoint_dir) as sess:
 
+    writer = tf.summary.FileWriter("output", sess.graph)
     start_iteration = sess.run(global_step)
     total_loss = 0
-    sess.run( [dataset.data_iterator.initializer ])
-    sess.run( [dataset_test.data_iterator.initializer ])
+    sess.run( train_init_op )
     for train_iteration in range(start_iteration, num_training_iterations):
       _, loss = sess.run([train_step, train_loss])
       total_loss += loss
@@ -171,21 +200,25 @@ def train(num_training_iterations, report_interval , batch_size ):
          #               train_iteration, total_loss / report_interval,
           #              )
         total_loss = 0
-
-
+    writer.close()
     print( "Calculationg data test")
     preds = np.zeros( ( dataset_test.num_samples , dataset_test.output_size ) )
     actuals = np.zeros( (dataset_test.num_samples ,  dataset_test.output_size ))
     start = 0 
     end = start + batch_size
-    sess.run( dataset_test.data_iterator.initializer )
+    sess.run( test_init_op )
     while True:
         try:
-            pred , actual = sess.run( [output_test_sigmoid , dataset_tensors_test[1] ])
+            pred , actual = sess.run( [output_sigmoid , labels ])
             delta = pred.shape[0]
+            #print( delta )
+            #print( pred.shape )
+            #print( actual.shape )
+            print( start )
             preds[ start: start+delta , : ] = pred
             actuals[ start:start+delta , :  ] = actual 
-            start += batch_size 
+            start += delta
+            
         except tf.errors.OutOfRangeError:
             #loss_t = sess.run( [ ]
             error = log_loss( actuals , preds )
@@ -197,7 +230,9 @@ def train(num_training_iterations, report_interval , batch_size ):
 
 def main(unused_argv):
   tf.logging.set_verbosity(3)  # Print INFO log messages.
-  train(FLAGS.num_training_iterations, FLAGS.report_interval , FLAGS.batch_size )
+  Nepochs =  4 
+
+  train( 4*100 , FLAGS.report_interval , FLAGS.batch_size )
 
 
 if __name__ == "__main__":
