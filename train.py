@@ -31,9 +31,9 @@ from sklearn.metrics import log_loss
 FLAGS = tf.flags.FLAGS
 
 # Model parameters
-tf.flags.DEFINE_integer("hidden_size", 64, "Size of LSTM hidden layer.")
-tf.flags.DEFINE_integer("memory_size", 32, "The number of memory slots.")
-tf.flags.DEFINE_integer("word_size", 32, "The width of each memory slot.")
+tf.flags.DEFINE_integer("hidden_size", 256, "Size of LSTM hidden layer.")
+tf.flags.DEFINE_integer("memory_size", 256, "The number of memory slots.")
+tf.flags.DEFINE_integer("word_size", 64 , "The width of each memory slot.")
 tf.flags.DEFINE_integer("num_write_heads", 1, "Number of memory write heads.")
 tf.flags.DEFINE_integer("num_read_heads", 4, "Number of memory read heads.")
 tf.flags.DEFINE_integer("clip_value", 20,

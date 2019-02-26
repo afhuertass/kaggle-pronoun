@@ -78,9 +78,9 @@ class Data(  snt.AbstractModule ):
 	def _build( self , repeat = None, shuffle = True  ):
 		#.shuffle( self.M )
 		if shuffle:
-			self.dataset1 = tf.data.Dataset.from_tensor_slices(   self.load_feats()  ).repeat( repeat ).shuffle(self.M).batch( self.batch_size )
+			self.dataset1 = tf.data.Dataset.from_tensor_slices(   (self.seqs_pad , self.labels )  ).repeat( repeat ).shuffle(self.M).batch( self.batch_size )
 		else:
-			self.dataset1 = tf.data.Dataset.from_tensor_slices(   self.load_feats()  ).repeat( repeat ).batch( self.batch_size )
+			self.dataset1 = tf.data.Dataset.from_tensor_slices(   (self.seqs_pad , self.labels )  ).repeat( repeat ).batch( self.batch_size )
 		#data_iterator = dataset1.make_initializable_iterator()
 		self.data_iterator = self.dataset1.make_initializable_iterator()
 		#feats , labels = self.load_feats()
