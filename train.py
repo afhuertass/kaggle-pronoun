@@ -165,7 +165,7 @@ def train(num_training_iterations, report_interval , batch_size ):
       total_loss += loss
       #print( loss )
       if (train_iteration + 1) % report_interval == 0:
-      	print( "train iteration:")
+        print( "train iteration:")
         print( total_loss/ report_interval )
         #tf.logging.info("%d: Avg training loss %f.\n%s",
          #               train_iteration, total_loss / report_interval,
