@@ -25,8 +25,9 @@ from dnc import dnc
 from dnc import repeat_copy
 from dnc import pronun_data as pronoun_data
 import pandas as pd 
+import numpy as np
 
-
+from sklearn.metrics import log_loss
 FLAGS = tf.flags.FLAGS
 
 # Model parameters
@@ -45,7 +46,7 @@ tf.flags.DEFINE_float("optimizer_epsilon", 1e-10,
                       "Epsilon used for RMSProp optimizer.")
 
 # Task parameters
-tf.flags.DEFINE_integer("batch_size", 32 , "Batch size for training.")
+tf.flags.DEFINE_integer("batch_size", 20 , "Batch size for training.")
 tf.flags.DEFINE_integer("num_bits", 4, "Dimensionality of each vector to copy")
 tf.flags.DEFINE_integer(
     "min_length", 1,
@@ -96,16 +97,28 @@ def run_model(input_sequence, output_size):
 
 def train(num_training_iterations, report_interval , batch_size ):
   """Trains the DNC and periodically reports the loss."""
-  df = pd.read_csv("./data/gap-test.tsv" , sep = "\t")
+  df_train = pd.read_csv("./data/gap-test.tsv" , sep = "\t")
+  df_test = pd.read_csv( "./data/gap-development.tsv" , sep = "\t")[:100]
 
-  dataset = pronoun_data.Data( df , batch_size = batch_size  )
+  dataset = pronoun_data.Data( df_train , batch_size = batch_size  )
+  dataset_test = pronoun_data.Data( df_test , batch_size = batch_size)
+
+
   dataset_tensors = dataset(  )
+  dataset_tensors_test = dataset_test(  repeat = 1 )
 
   #inputs = tf.zeros( shape = [128 , 1 , 900 ])
   output_logits = run_model( dataset_tensors[0] , dataset.output_size )
   # Used for visualization.
   output_logits = output_logits[ : , -1 , :]
   output_sigmoid = tf.nn.sigmoid( output_logits )
+
+  ## test operations
+
+  output_test = run_model( dataset_tensors_test[0] , dataset_test.output_size )
+  output_test_logits = output_test[: , -1 , : ]
+  output_test_sigmoid = tf.nn.sigmoid( output_test_logits )
+
 
   train_loss = dataset.loss( dataset_tensors[1] , output_sigmoid  )
   print( train_loss.shape )
@@ -146,7 +159,7 @@ def train(num_training_iterations, report_interval , batch_size ):
     start_iteration = sess.run(global_step)
     total_loss = 0
     sess.run( [dataset.data_iterator.initializer ])
-
+    sess.run( [dataset_test.data_iterator.initializer ])
     for train_iteration in range(start_iteration, num_training_iterations):
       _, loss = sess.run([train_step, train_loss])
       total_loss += loss
@@ -157,6 +170,28 @@ def train(num_training_iterations, report_interval , batch_size ):
          #               train_iteration, total_loss / report_interval,
           #              )
         total_loss = 0
+
+      if ( train_iteration + 0  ) % 1 == 10 :
+        print( "Calculationg data test")
+        preds = np.zeros( ( dataset_test.num_samples , dataset_test.output_size ) )
+        actuals = np.zeros( (dataset_test.num_samples ,  dataset_test.output_size ))
+        start = 0 
+        end = start + batch_size
+        sess.run( dataset_test.data_iterator.initializer )
+        while True:
+            try:
+                pred , actual = sess.run( [output_test_sigmoid , dataset_tensors_test[1] ])
+                delta = pred.shape[0]
+                preds[ start: start+delta , : ] = pred
+                actuals[ start:start+delta , :  ] = actual 
+                start += batch_size 
+            except tf.errors.OutOfRangeError:
+                #loss_t = sess.run( [ ]
+                error = log_loss( actuals , preds )
+                print( "Loss on test:" , error )
+                break 
+
+
 
 
 def main(unused_argv):

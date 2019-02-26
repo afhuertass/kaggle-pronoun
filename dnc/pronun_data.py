@@ -21,7 +21,7 @@ class Data(  snt.AbstractModule ):
 		self.output_size = output_size
 		self.encoder = Encoder( 200 , pct_bpe = 0.88 )
 		self.df = df
-
+		self.num_samples = df.shape[0]
 		self.load_feats( )
 
 	def load_feats( self  ):
@@ -75,9 +75,9 @@ class Data(  snt.AbstractModule ):
 
 		return df 
 
-	def _build( self ):
+	def _build( self , repeat = None  ):
 
-		self.dataset1 = tf.data.Dataset.from_tensor_slices(   self.load_feats()  ).repeat().shuffle( self.M ).batch( self.batch_size )
+		self.dataset1 = tf.data.Dataset.from_tensor_slices(   self.load_feats()  ).repeat( repeat ).shuffle( self.M ).batch( self.batch_size )
 		#data_iterator = dataset1.make_initializable_iterator()
 		self.data_iterator = self.dataset1.make_initializable_iterator()
 		#feats , labels = self.load_feats()
