@@ -26,14 +26,15 @@ from dnc import repeat_copy
 from dnc import pronun_data as pronoun_data
 import pandas as pd 
 import numpy as np
+from bpe import Encoder 
 
 from sklearn.metrics import log_loss
 FLAGS = tf.flags.FLAGS
 
 # Model parameters
-tf.flags.DEFINE_integer("hidden_size", 256, "Size of LSTM hidden layer.")
-tf.flags.DEFINE_integer("memory_size", 128, "The number of memory slots.")
-tf.flags.DEFINE_integer("word_size", 32 , "The width of each memory slot.")
+tf.flags.DEFINE_integer("hidden_size", 32, "Size of LSTM hidden layer.")
+tf.flags.DEFINE_integer("memory_size", 32, "The number of memory slots.")
+tf.flags.DEFINE_integer("word_size", 3 , "The width of each memory slot.")
 tf.flags.DEFINE_integer("num_write_heads", 1, "Number of memory write heads.")
 tf.flags.DEFINE_integer("num_read_heads", 4, "Number of memory read heads.")
 tf.flags.DEFINE_integer("clip_value", 20,
@@ -98,26 +99,68 @@ def run_model2( dnc_cell , input_sequence  ):
       )
 
     return output_sequence 
+def highlight(  x ):
+	    
+	    # x is a row
+	offset_pronoun = x["Pronoun-offset"] 
+    
+	pronoun = x["Pronoun"]
+	len_pronoun = len( pronoun )
+    #print( len_pronoun )
+	text = x["Text"]
+    
+	new_text = text[: offset_pronoun] + "*" + pronoun +"*" + text[  offset_pronoun+len_pronoun:  ]
+    
+	return new_text
 
-def run_model(input_sequence, output_size):
-  """Runs model on input sequence."""
+def name_replace( s, r1, r2):
+	s = str(s).replace(r1,r2)
+	return s
 
-  output_sequence, _ = tf.nn.dynamic_rnn(
-      cell=dnc_core,
-      inputs=input_sequence,
-      time_major=False,
-      initial_state=initial_state)
+def preparedata( df ):
 
-  return output_sequence
+		df["A-coref"] = df["A-coref"].astype(int)
+		df["B-coref"] = df["B-coref"].astype(int )
+		df.loc[: , "N"] = 1 - (df["A-coref"] + df["B-coref"])
 
+		df["A"] = df["A"].apply( lambda x: x.lower()  )
+		df["B"] = df["B"].apply( lambda x: x.lower() )
+
+
+		df["Pronoun"] = df["Pronoun"].apply( lambda x: x.lower() )
+		df["Text"] = df["Text"].apply( lambda x : x.lower() )
+
+		# removing some things
+		df["Text"] = df.apply(lambda x: x["Text"].replace("*" , "x")  , axis = 1   )
+
+		#
+
+		df["Text"] = df.apply(lambda x: highlight(x), axis = 1)
+
+		df["Text"] = df.apply(lambda x: name_replace( x["Text"] , x["A"] , "subjectone" ) , axis = 1   )
+		df["Text"] = df.apply(lambda x: name_replace( x["Text"] , x["B"] , "subjecttwo" ) , axis = 1   )
+
+		return df 
+
+
+def fit_encoder( df ):
+
+	df = preparedata( df )
+	encoder = Encoder( 200 , pct_bpe = 0.88 )
+	encoder.fit( df["Text"].values )
+
+
+	return encoder
 
 def train(num_training_iterations, report_interval , batch_size ):
   """Trains the DNC and periodically reports the loss."""
   df_train = pd.read_csv("./data/gap-test.tsv" , sep = "\t")
   df_test = pd.read_csv( "./data/gap-development.tsv" , sep = "\t") #[:100]
 
-  dataset = pronoun_data.Data( df_train , batch_size = batch_size  )
-  dataset_test = pronoun_data.Data( df_test , batch_size = batch_size)
+  encoder = fit_encoder( df_train )
+  dataset = pronoun_data.Data( df_train , batch_size = batch_size , encoder = encoder  )
+  dataset_test = pronoun_data.Data( df_test , batch_size = batch_size , encoder = encoder )
+
 
   dataset( shuffle = True )
   dataset_test( repeat = 1 )

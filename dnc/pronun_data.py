@@ -13,13 +13,13 @@ import pandas as pd
 class Data(  snt.AbstractModule ):
 
 
-	def __init__( self ,  df  , batch_size = 128 , output_size = 3  , name = "data_feeder" ):
+	def __init__( self ,  df  , batch_size = 128 , encoder = None , output_size = 3  , name = "data_feeder" ):
 
 		super( Data , self ).__init__( name = name )
 
 		self.batch_size = batch_size
 		self.output_size = output_size
-		self.encoder = Encoder( 200 , pct_bpe = 0.88 )
+		self.encoder = encoder
 		self.df = df
 		self.num_samples = df.shape[0]
 		self.load_feats( )
@@ -28,7 +28,7 @@ class Data(  snt.AbstractModule ):
 
 
 		df = self.preparedata( self.df )
-		self.encoder.fit( df["Text"].values ) 
+		#self.encoder.fit( df["Text"].values ) 
 		#3log(x+y)
 		df.loc[ : , "encoded"] = df["Text"].apply( lambda x: self.encode_feats( x ) )
 
